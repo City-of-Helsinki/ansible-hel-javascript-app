@@ -1,0 +1,18 @@
+{
+  apps : [
+    // {{node_container.name}}
+    {
+      name      : "{{node_container.name}}",
+      script    : "{{node_container.entrypoint}}",
+      watch	: "/home/{{node_container.user}}/service_state/touch_to_reload",
+      {% if node_container.server_environment is defined %}
+      env:
+          {{ node_container.server_environment | to_nice_json }}
+      ,
+      {% endif %}
+      env_production : {
+        NODE_ENV: "production"
+      },
+    },
+  ],
+}
