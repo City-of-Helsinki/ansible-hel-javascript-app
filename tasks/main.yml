@@ -60,7 +60,7 @@
 
 - name: Set package manager to use as a fact
   set_fact:
-    npm_manager: "{{ use_yarn|default(False)|ternary('yarn','npm') }}"
+    npm_manager: "{{ node_container.use_yarn|default(False)|ternary('yarn','npm') }}"
   tags: code_update
 
 # Install needed Node.js prerequisites, PATH setup needed for NVM
@@ -69,7 +69,6 @@
   environment:
     PATH: "{{node_binary_path}}:{{ ansible_env.PATH }}"
   npm: name={{item}} executable={{ npm_manager }} global=yes
-#  npm: name={{item}} executable={{node_path.stdout_lines[0]}}/npm global=yes
   with_items: "{{node_container.npm_modules|default([]) }}"
 
 - name: Clone the the project source into build directory
@@ -79,14 +78,25 @@
        version={{node_container.git.version}}
   tags: code_update
 
-- name: Install project NPM packages
+# Install packages using NPM...
+- name: Install project NPM packages using NPM
   become_user: "{{node_container.user}}"
   environment:
     PATH: "{{node_binary_path}}:{{ ansible_env.PATH }}"
-  npm: executable={{ npm_manager }} path=/home/{{node_container.user}}/build/{{node_container.name}}
-#  npm: path=/home/{{node_container.user}}/build/{{node_container.name}}
-#  npm: executable={{node_path.stdout_lines[0]}}/npm path=/home/{{node_container.user}}/build/{{node_container.name}}
+  npm: path=/home/{{node_container.user}}/build/{{node_container.name}}
   tags: code_update
+  when: not node_container.use_yarn|default(False)
+
+# ...or YARN
+- name: Install project NPM packages using YARN
+  become_user: "{{node_container.user}}"
+  environment:
+    PATH: "{{node_binary_path}}:{{ ansible_env.PATH }}"
+  command: yarn install
+  args:
+    chdir: /home/{{node_container.user}}/build/{{node_container.name}}
+  tags: code_update
+  when: node_container.use_yarn|default(False)
 
 - set_fact:
     node_path:
@@ -132,6 +142,7 @@
   tags: code_update
 
 - name: Recreating previous directory
+  become_user: "{{ node_container.user }}"
   file: path=/home/{{node_container.user}}/previous state=directory
   tags: code_update
 
@@ -139,12 +150,14 @@
   become_user: "{{node_container.user}}"
   environment:
     PATH: "{{node_binary_path}}:{{ ansible_env.PATH }}"
-  npm: name=pm2 executable={{npm_manager}} global=yes
+  npm: name=pm2 global=yes
   when: node_container.project_server|default(False)
 
 - name: Set up project init for PM2
   template: src=pm2-app.json
-            dest=/home/{{node_container.user}}/build/{{node_container.name}}/app.json
+            dest=/home/{{node_container.user}}/service_state/app.json
+            owner={{node_container.user}}
+            mode=0400
   when: node_container.project_server|default(False)
 
 - name: Renaming current version (if it exists) to previous
@@ -179,7 +192,7 @@
 # This will not cause the file to magically do something, PM2 must be configured
 # and currently it is not
 - name: Touch the service reload flag file
-  file: path=/home/{{node_container.user}}/service_state/touch_to_reload state=touch
+  file: path=/home/{{node_container.user}}/service_state/touch_to_reload owner={{node_container.user}} state=touch
   tags: code_update
 
 - name: Generate DH parameters if they don't already exist

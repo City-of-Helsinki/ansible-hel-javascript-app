@@ -57,7 +57,7 @@ super() {
 
 start() {
     echo "Starting $NAME"
-    super $PM2 startOrRestart app.json {{ node_container.pm2_params }}
+    super $PM2 startOrRestart /home/{{node_container.user}}/service_state/app.json {{ node_container.pm2_params|default("") }}
 }
 
 stop() {
