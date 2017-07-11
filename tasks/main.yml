@@ -43,6 +43,7 @@
 - name: Store node binary path as fact
   set_fact:
     node_binary_path: "{{node_path_output.stdout_lines[0]}}"
+  tags: code_update
 
 - name: Upgrade NPM to latest version (using itself)
   become_user: "{{node_container.user}}"
@@ -64,12 +65,14 @@
   tags: code_update
 
 # Install needed Node.js prerequisites, PATH setup needed for NVM
+# This is always done using npm for now
 - name: Install needed global Node packages
   become_user: "{{node_container.user}}"
   environment:
     PATH: "{{node_binary_path}}:{{ ansible_env.PATH }}"
-  npm: name={{item}} executable={{ npm_manager }} global=yes
+  npm: name={{item}} global=yes
   with_items: "{{node_container.npm_modules|default([]) }}"
+  when: not node_container.use_yarn|default(False)
 
 - name: Clone the the project source into build directory
   become_user: "{{node_container.user}}"
@@ -186,11 +189,9 @@
 
 - name: Ensure PM2 service is started
   service: name={{node_container.name}}-pm2 state=started
-  tags: code_update
   when: node_container.project_server|default(False)
   
-# This will not cause the file to magically do something, PM2 must be configured
-# and currently it is not
+# PM2 app.json configured above sets up listen for this file
 - name: Touch the service reload flag file
   file: path=/home/{{node_container.user}}/service_state/touch_to_reload owner={{node_container.user}} state=touch
   tags: code_update

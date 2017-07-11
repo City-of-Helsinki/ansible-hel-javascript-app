@@ -36,10 +36,11 @@ server {
         ssl_certificate_key {{node_container.privkey}};
         ssl_session_timeout 1d;
         ssl_session_cache shared:SSL:50m;
+        ssl_tickets off;
 
         # Diffie-Hellman parameter for DHE ciphersuites, recommended 2048
         # bits
-        ssl_dhparam /etc/ssl/dhparams.pem;
+        ssl_dhparam /etc/ssl/dhparam.pem;
 
         # intermediate configuration. tweak to your needs.
         ssl_protocols TLSv1 TLSv1.1 TLSv1.2;
