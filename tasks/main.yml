@@ -12,12 +12,15 @@
 # Projects are moving towards YARN, just install it always
 - name: Add YARN repository key
   apt_key: url='https://dl.yarnpkg.com/debian/pubkey.gpg' state=present
+  tags: yarn_install
 
 - name: Add YARN repository
   apt_repository: repo='deb https://dl.yarnpkg.com/debian/ stable main' update_cache=yes state=present
+  tags: yarn_install
 
 - name: Install && Update YARN
   apt: name=yarn state=present
+  tags: yarn_install
 
 # This and the following stanzas use NVM to install specific node version
 # They attempt to determine the location of said installation dynamically

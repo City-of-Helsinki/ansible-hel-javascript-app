@@ -36,7 +36,7 @@ server {
         ssl_certificate_key {{node_container.privkey}};
         ssl_session_timeout 1d;
         ssl_session_cache shared:SSL:50m;
-        ssl_tickets off;
+        ssl_session_tickets off;
 
         # Diffie-Hellman parameter for DHE ciphersuites, recommended 2048
         # bits
