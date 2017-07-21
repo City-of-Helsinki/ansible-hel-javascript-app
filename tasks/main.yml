@@ -204,6 +204,56 @@
   args:
     creates: /etc/ssl/dhparam.pem
 
+- debug: var=node_container.certchain
+
+- name: Ensure certificate archive exists
+  become: yes
+  file:
+    path: /etc/letsencrypt/archive/{{ node_container.webname }}
+    state: directory
+    mode: 0700
+  when: node_container.certchain is defined
+
+- name: Ensure certificate liveliness exists
+  become: yes
+  file:
+    path: /etc/letsencrypt/live/{{ node_container.webname }}
+    state: directory
+    mode: 0700
+  when: node_container.certchain is defined
+
+- name: Copying certificates to server
+  become: yes
+  copy: src=private/tls/{{ node_container.webname }}/{{ node_container.webname }}-fullchain.pem
+        dest=/etc/letsencrypt/archive/{{ node_container.webname }}/fullchain.pem
+        owner=root
+        group=root
+        directory_mode=0755
+        mode=0444
+        backup=yes
+  when: node_container.certchain is defined
+
+- name: Copying new keys to servers
+  become: yes
+  copy: src=private/tls/{{ node_container.webname }}/{{ node_container.webname }}.key
+        dest=/etc/letsencrypt/archive/{{ node_container.webname }}/privkey.pem
+        owner=root
+        group=root
+        directory_mode=0750
+        mode=0440
+        backup=yes
+  when: node_container.certchain is defined
+
+- name: Ensure the link to newest certificate exists
+  become: yes
+  file: src={{ item.source }} path={{ item.dest }} state=link
+  with_items:
+    - source: /etc/letsencrypt/archive/{{ node_container.webname }}/fullchain.pem
+      dest: /etc/letsencrypt/live/{{ node_container.webname }}/fullchain.pem
+    - source: /etc/letsencrypt/archive/{{ node_container.webname }}/privkey.pem
+      dest: /etc/letsencrypt/live/{{ node_container.webname }}/privkey.pem
+  when: node_container.certchain is defined
+
 - name: Set up nginx configuration
   template: src=nginx_site.j2
             dest=/etc/nginx/sites-available/{{node_container.name}}
