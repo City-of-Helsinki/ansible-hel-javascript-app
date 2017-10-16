@@ -4,8 +4,8 @@ node_container:
     version: master
   # Port for the webserver handling out files and supporting auth
   contractport: 9000
-  # v4 is LTS for Node.js
-  nodeversion: v4
+  # Use latest LTS of Node by default
+  nodeversion: lts/*
   # Whether to run the script specified in entry_point
   # using PM2
   project_server: False

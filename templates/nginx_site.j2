@@ -36,7 +36,10 @@ server {
         ssl_certificate_key {{node_container.privkey}};
         ssl_session_timeout 1d;
         ssl_session_cache shared:SSL:50m;
-        ssl_session_tickets off;
+        # this was previously used to disable tickets. Turns out it was a mistake
+        # Instead all virtualhosts in same nginx instance must have same value for this setting
+        # ie. DO NOT DO this on server level (instead at http level)
+        # ssl_session_tickets off;
 
         # Diffie-Hellman parameter for DHE ciphersuites, recommended 2048
         # bits
