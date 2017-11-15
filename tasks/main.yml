@@ -193,7 +193,7 @@
 - name: Ensure PM2 service is started
   service: name={{node_container.name}}-pm2 state=started
   when: node_container.project_server|default(False)
-  
+
 # PM2 app.json configured above sets up listen for this file
 - name: Touch the service reload flag file
   file: path=/home/{{node_container.user}}/service_state/touch_to_reload owner={{node_container.user}} state=touch
