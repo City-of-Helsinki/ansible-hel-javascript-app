@@ -1,6 +1,10 @@
 - name: Create system user for the Node app
   user: name={{node_container.user}} comment="{{node_container.name}} system user" system=yes
 
+- name: Install system package requirements for node application
+  apt: name="{{item}}" state=present
+  with_items: "{{ node_container.syspkg_requirements }}"
+
 - name: Creative directory for NVM
   become_user: "{{node_container.user}}"
   file: path=/home/{{node_container.user}}/nvm state=directory mode=0755
@@ -203,8 +207,7 @@
   command: openssl dhparam -out /etc/ssl/dhparam.pem 2048
   args:
     creates: /etc/ssl/dhparam.pem
-
-- debug: var=node_container.certchain
+  when: not node_container_nginx_disabled|default(False)
 
 - name: Ensure certificate archive exists
   become: yes
@@ -212,7 +215,7 @@
     path: /etc/letsencrypt/archive/{{ node_container.webname }}
     state: directory
     mode: 0700
-  when: node_container.certchain is defined
+  when: node_container.certchain is defined and not node_container_nginx_disabled|default(False)
 
 - name: Ensure certificate liveliness exists
   become: yes
@@ -220,7 +223,7 @@
     path: /etc/letsencrypt/live/{{ node_container.webname }}
     state: directory
     mode: 0700
-  when: node_container.certchain is defined
+  when: node_container.certchain is defined and not node_container_nginx_disabled|default(False)
 
 - name: Copying certificates to server
   become: yes
@@ -231,7 +234,7 @@
         directory_mode=0755
         mode=0444
         backup=yes
-  when: node_container.certchain is defined
+  when: node_container.certchain is defined and not node_container_nginx_disabled|default(False)
 
 - name: Copying new keys to servers
   become: yes
@@ -242,7 +245,7 @@
         directory_mode=0750
         mode=0440
         backup=yes
-  when: node_container.certchain is defined
+  when: node_container.certchain is defined and not node_container_nginx_disabled|default(False)
 
 - name: Ensure the link to newest certificate exists
   become: yes
@@ -252,22 +255,26 @@
       dest: /etc/letsencrypt/live/{{ node_container.canonical_name }}/fullchain.pem
     - source: /etc/letsencrypt/archive/{{ node_container.canonical_name }}/privkey.pem
       dest: /etc/letsencrypt/live/{{ node_container.canonical_name }}/privkey.pem
-  when: node_container.certchain is defined
+  when: node_container.certchain is defined and not node_container_nginx_disabled|default(False)
 
 - name: Set up nginx configuration
   template: src=nginx_site.j2
             dest=/etc/nginx/sites-available/{{node_container.name}}
+  when: not node_container_nginx_disabled|default(False)
 
 - name: Ensure ACME challenge directory exists
   file: path=/srv/letsencrypt/challenges
         state=directory
         owner=root
         group=root
+  when: not node_container_nginx_disabled|default(False)
 
 - name: Enable (symlink) nginx configuration
   file: force=yes state=link
         path=/etc/nginx/sites-enabled/{{node_container.name}}
         src=/etc/nginx/sites-available/{{node_container.name}}
+  when: not node_container_nginx_disabled|default(False)
 
 - name: Reload nginx
   service: name=nginx state=reloaded
+  when: not node_container_nginx_disabled|default(False)
