@@ -1,9 +1,14 @@
 - name: Create system user for the Node app
   user: name={{node_container.user}} comment="{{node_container.name}} system user" system=yes
 
+- name: Install git
+  apt: pkg={{item}} state=present update-cache=yes cache_valid_time=86400
+  with_items:
+  - git-core
+
 - name: Install system package requirements for node application
   apt: name="{{item}}" state=present
-  with_items: "{{ node_container.syspkg_requirements }}"
+  with_items: "{{ node_container.syspkg_requirements|default([]) }}"
 
 - name: Creative directory for NVM
   become_user: "{{node_container.user}}"
@@ -58,13 +63,6 @@
     PATH: "{{node_binary_path}}:{{ ansible_env.PATH }}"
   npm: name=npm executable={{node_binary_path}}/npm global=yes state=latest production=yes
   when: node_container.upgrade_npm is defined
-
-- name: Install base packages for installing Node based stuff
-  apt: pkg={{item}} state=present update-cache=yes cache_valid_time=86400
-  with_items:
-  - git-core
-  - nginx
-  tags: apt
 
 - name: Set package manager to use as a fact
   set_fact:
@@ -139,12 +137,14 @@
   unarchive: src={{ item.src }} dest=/home/{{ node_container.user }}/public/{{ item.dst }}
   with_items: "{{ node_container.static_archives | default([])}}"
 
-
 # State directory (misnomer) contains both state and actions for managing
 # the service (like backup config, scripts and reload touchpoint)
-- name: Ensure service state directory exists
-  file: path=/home/{{node_container.user}}/service_state state=directory
+- name: Ensure service directories exist
+  file: path=/home/{{node_container.user}}/{{item}} state=directory
   tags: code_update
+  with_items:
+    - service_state
+    - service_tasks
 
 - name: Removing possibly existing previous version
   file: path=/home/{{node_container.user}}/previous state=absent
@@ -185,96 +185,24 @@
   template: src=pm2-init.sh
             dest=/etc/init.d/{{node_container.name}}-pm2
             mode=0755
-  when: node_container.project_server|default(False)
+  when: node_container.project_server|default(False) and node_container.use_init|default(True)
 
 - name: Enable PM2 startup through system init
   service: name={{node_container.name}}-pm2 enabled=yes
-  when: node_container.project_server|default(False)
+  when: node_container.project_server|default(False) and node_container.use_init|default(True)
 
 # It seems to state=started has no effect when combined with
 # enabled=yes (previous stanza)
 
 - name: Ensure PM2 service is started
   service: name={{node_container.name}}-pm2 state=started
-  when: node_container.project_server|default(False)
+  when: node_container.project_server|default(False) and node_container.use_init|default(True)
 
 # PM2 app.json configured above sets up listen for this file
 - name: Touch the service reload flag file
   file: path=/home/{{node_container.user}}/service_state/touch_to_reload owner={{node_container.user}} state=touch
   tags: code_update
 
-- name: Generate DH parameters if they don't already exist
-  command: openssl dhparam -out /etc/ssl/dhparam.pem 2048
-  args:
-    creates: /etc/ssl/dhparam.pem
-  when: not node_container_nginx_disabled|default(False)
-
-- name: Ensure certificate archive exists
-  become: yes
-  file:
-    path: /etc/letsencrypt/archive/{{ node_container.webname }}
-    state: directory
-    mode: 0700
-  when: node_container.certchain is defined and not node_container_nginx_disabled|default(False)
-
-- name: Ensure certificate liveliness exists
-  become: yes
-  file:
-    path: /etc/letsencrypt/live/{{ node_container.webname }}
-    state: directory
-    mode: 0700
-  when: node_container.certchain is defined and not node_container_nginx_disabled|default(False)
-
-- name: Copying certificates to server
-  become: yes
-  copy: src=private/tls/{{ node_container.canonical_name }}/{{ node_container.canonical_name }}-fullchain.pem
-        dest=/etc/letsencrypt/archive/{{ node_container.canonical_name }}/fullchain.pem
-        owner=root
-        group=root
-        directory_mode=0755
-        mode=0444
-        backup=yes
-  when: node_container.certchain is defined and not node_container_nginx_disabled|default(False)
-
-- name: Copying new keys to servers
-  become: yes
-  copy: src=private/tls/{{ node_container.canonical_name }}/{{ node_container.canonical_name }}.key
-        dest=/etc/letsencrypt/archive/{{ node_container.canonical_name }}/privkey.pem
-        owner=root
-        group=root
-        directory_mode=0750
-        mode=0440
-        backup=yes
-  when: node_container.certchain is defined and not node_container_nginx_disabled|default(False)
-
-- name: Ensure the link to newest certificate exists
-  become: yes
-  file: src={{ item.source }} path={{ item.dest }} state=link
-  with_items:
-    - source: /etc/letsencrypt/archive/{{ node_container.canonical_name }}/fullchain.pem
-      dest: /etc/letsencrypt/live/{{ node_container.canonical_name }}/fullchain.pem
-    - source: /etc/letsencrypt/archive/{{ node_container.canonical_name }}/privkey.pem
-      dest: /etc/letsencrypt/live/{{ node_container.canonical_name }}/privkey.pem
-  when: node_container.certchain is defined and not node_container_nginx_disabled|default(False)
-
-- name: Set up nginx configuration
-  template: src=nginx_site.j2
-            dest=/etc/nginx/sites-available/{{node_container.name}}
-  when: not node_container_nginx_disabled|default(False)
-
-- name: Ensure ACME challenge directory exists
-  file: path=/srv/letsencrypt/challenges
-        state=directory
-        owner=root
-        group=root
-  when: not node_container_nginx_disabled|default(False)
-
-- name: Enable (symlink) nginx configuration
-  file: force=yes state=link
-        path=/etc/nginx/sites-enabled/{{node_container.name}}
-        src=/etc/nginx/sites-available/{{node_container.name}}
-  when: not node_container_nginx_disabled|default(False)
-
-- name: Reload nginx
-  service: name=nginx state=reloaded
+# Nginx was a historical accident
+- import_tasks: nginx.yml
   when: not node_container_nginx_disabled|default(False)
