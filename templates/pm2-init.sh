@@ -5,7 +5,7 @@
 # processname: pm2
 #
 ### BEGIN INIT INFO
-# Provides:          pm2-{{node_container.name}}
+# Provides:          pm2-{{heljs_name}}
 # Required-Start: $local_fs $remote_fs
 # Required-Stop: $local_fs $remote_fs
 # Should-Start: $network
@@ -16,13 +16,13 @@
 # Description: PM2 is the next gen process manager for Node.js
 ### END INIT INFO
 
-NAME=pm2-{{node_container.name}}
+NAME=pm2-{{heljs_name}}
 PM2={{node_binary_path}}/../lib/node_modules/pm2/bin/pm2
-USER={{node_container.user}}
-DEFAULT=/etc/default/pm2-{{node_container.name}}
+USER={{heljs_user}}
+DEFAULT=/etc/default/pm2-{{heljs_name}}
 
 export PATH={{node_binary_path}}:$PATH
-export PM2_HOME="/home/{{node_container.user}}/.pm2"
+export PM2_HOME="/home/{{heljs_user}}/.pm2"
 
 # The following variables can be overwritten in $DEFAULT
 
@@ -52,12 +52,12 @@ get_user_shell() {
 
 super() {
     local shell=$(get_user_shell $USER)
-    su - $USER -s $shell -c "cd /home/{{node_container.user}}/{{node_container.name}}; PATH=$PATH; PM2_HOME=$PM2_HOME $*"
+    su - $USER -s $shell -c "cd /home/{{heljs_user}}/{{heljs_name}}; PATH=$PATH; PM2_HOME=$PM2_HOME $*"
 }
 
 start() {
     echo "Starting $NAME"
-    super $PM2 startOrRestart /home/{{node_container.user}}/service_state/app.json {{ node_container.pm2_params|default("") }}
+    super $PM2 startOrRestart /home/{{heljs_user}}/service_state/app.json {{ heljs_pm2_params|default("") }}
 }
 
 stop() {

@@ -1,13 +1,13 @@
 {
   apps : [
-    // {{node_container.name}}
+    // {{heljs_name}}
     {
-      name      : "{{node_container.name}}",
-      script    : "{{node_container.entrypoint}}",
-      watch	: "/home/{{node_container.user}}/service_state/touch_to_reload",
-      {% if node_container.server_environment is defined %}
+      name      : "{{heljs_name}}",
+      script    : "{{heljs_entrypoint}}",
+      watch	: "/home/{{heljs_user}}/service_state/touch_to_reload",
+      {% if heljs_server_environment is defined %}
       env:
-          {{ node_container.server_environment | to_nice_json }}
+          {{ heljs_server_environment | to_nice_json }}
       ,
       {% endif %}
       env_production : {
