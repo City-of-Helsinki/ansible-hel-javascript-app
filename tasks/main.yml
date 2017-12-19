@@ -27,8 +27,10 @@
   apt_repository: repo='deb https://dl.yarnpkg.com/debian/ stable main' update_cache=yes state=present
   tags: yarn_install
 
+# Note install_recommends=no, we do not wish to use system Node
+# Instead we use node from NVM to use yarn
 - name: Install && Update YARN
-  apt: name=yarn state=present
+  apt: name=yarn state=present install_recommends=no
   tags: yarn_install
 
 # This and the following stanzas use NVM to install specific node version
@@ -105,6 +107,14 @@
     chdir: /home/{{node_container.user}}/build/{{node_container.name}}
   tags: code_update
   when: node_container.use_yarn|default(False)
+
+- name: Clean YARN cache (if requested)
+  become_user: "{{node_container.user}}"
+  environment:
+    PATH: "{{node_binary_path}}:{{ ansible_env.PATH }}"
+  command: yarn cache clean
+  tags: code_update
+  when: node_container.use_yarn|default(False) and node_container_clean_caches|default(False)
 
 - set_fact:
     node_path:
