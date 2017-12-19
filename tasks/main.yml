@@ -83,9 +83,9 @@
 
 - name: Clone the the project source into build directory
   become_user: "{{heljs_user}}"
-  git: repo={{heljs_git.url}}
+  git: repo={{heljs_git_repository}}
        dest=/home/{{heljs_user}}/build/{{heljs_name}}
-       version={{heljs_git.version}}
+       version={{heljs_git_version}}
   tags: code_update
 
 # Install packages using NPM...
