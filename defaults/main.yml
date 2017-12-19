@@ -1,16 +1,14 @@
-node_container:
-  # Version to pull from git, default is "master" for development support
-  git:
-    version: master
-  # Port for the webserver handling out files and supporting auth
-  contractport: 9000
-  # Use latest LTS of Node by default
-  nodeversion: lts/*
-  # Whether to run the script specified in entry_point
-  # using PM2
-  project_server: False
-  #entry_point: server
-  # Parameters for PM2 (after startOrRestart app.json)
-  pm2_params: --env production
-  build_environment:
-    placeholder_value: placeholder_value
+# Repository address
+#heljs_git_repository: 
+# Version to pull from git, default is "master" for development support
+heljs_git_revision: master
+# Use latest LTS of Node by default
+heljs_nodeversion: lts/*
+# Whether to run the script specified in entry_point
+# using PM2
+heljs_project_server: False
+#entry_point: server
+# Parameters for PM2 (after startOrRestart app.json)
+heljs_pm2_params: --env production
+heljs_build_environment:
+  placeholder_value: placeholder_value

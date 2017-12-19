@@ -1,22 +1,22 @@
 - name: Create system user for the Node app
-  user: name={{node_container.user}} comment="{{node_container.name}} system user" system=yes
+  user: name={{heljs_user}} comment="{{heljs_name}} system user" system=yes
 
 - name: Install git
   apt: pkg={{item}} state=present update-cache=yes cache_valid_time=86400
   with_items:
   - git-core
 
-- name: Install system package requirements for node application
+- name: Install system package requirements for the node application
   apt: name="{{item}}" state=present
-  with_items: "{{ node_container.syspkg_requirements|default([]) }}"
+  with_items: "{{ heljs_syspkg_requirements|default([]) }}"
 
 - name: Creative directory for NVM
-  become_user: "{{node_container.user}}"
-  file: path=/home/{{node_container.user}}/nvm state=directory mode=0755
+  become_user: "{{heljs_user}}"
+  file: path=/home/{{heljs_user}}/nvm state=directory mode=0755
 
 - name: Copy in frozen NVM version from deployment directory
-  become_user: "{{node_container.user}}"
-  copy: src=nvm.sh dest=/home/{{node_container.user}}/nvm/nvm.sh
+  become_user: "{{heljs_user}}"
+  copy: src=nvm.sh dest=/home/{{heljs_user}}/nvm/nvm.sh
 
 # Projects are moving towards YARN, just install it always
 - name: Add YARN repository key
@@ -41,14 +41,14 @@
 
 # Makes use of NVM alias definition to prevent re-installation
 - name: Install node and set version
-  become_user: "{{node_container.user}}"
+  become_user: "{{heljs_user}}"
   shell: >
-    /bin/bash -c 'source ~/nvm/nvm.sh && nvm install {{node_container.nodeversion}} && nvm alias default {{node_container.nodeversion}}'
-    creates=/home/{{ node_container.user }}/nvm/alias/default
+    /bin/bash -c 'source ~/nvm/nvm.sh && nvm install {{heljs_nodeversion}} && nvm alias default {{heljs_nodeversion}}'
+    creates=/home/{{ heljs_user }}/nvm/alias/default
 
 # The Node stored can be be used eg. from Django application run through Uwsgi
 - name: Get and store path ($HOME/nvm/path_to_current) for current Node version
-  become_user: "{{node_container.user}}"
+  become_user: "{{heljs_user}}"
   shell: >
     /bin/bash -c 'source ~/nvm/nvm.sh && dirname $(nvm which default) | tee ~/nvm/path_to_current'
   register: node_path_output
@@ -60,61 +60,61 @@
   tags: code_update
 
 - name: Upgrade NPM to latest version (using itself)
-  become_user: "{{node_container.user}}"
+  become_user: "{{heljs_user}}"
   environment:
     PATH: "{{node_binary_path}}:{{ ansible_env.PATH }}"
   npm: name=npm executable={{node_binary_path}}/npm global=yes state=latest production=yes
-  when: node_container.upgrade_npm is defined
+  when: heljs_upgrade_npm is defined
 
 - name: Set package manager to use as a fact
   set_fact:
-    npm_manager: "{{ node_container.use_yarn|default(False)|ternary('yarn','npm') }}"
+    npm_manager: "{{ heljs_use_yarn|default(False)|ternary('yarn','npm') }}"
   tags: code_update
 
 # Install needed Node.js prerequisites, PATH setup needed for NVM
 # This is always done using npm for now
 - name: Install needed global Node packages
-  become_user: "{{node_container.user}}"
+  become_user: "{{heljs_user}}"
   environment:
     PATH: "{{node_binary_path}}:{{ ansible_env.PATH }}"
   npm: name={{item}} global=yes
-  with_items: "{{node_container.npm_modules|default([]) }}"
-  when: not node_container.use_yarn|default(False)
+  with_items: "{{heljs_npm_modules|default([]) }}"
+  when: not heljs_use_yarn|default(False)
 
 - name: Clone the the project source into build directory
-  become_user: "{{node_container.user}}"
-  git: repo={{node_container.git.url}}
-       dest=/home/{{node_container.user}}/build/{{node_container.name}}
-       version={{node_container.git.version}}
+  become_user: "{{heljs_user}}"
+  git: repo={{heljs_git.url}}
+       dest=/home/{{heljs_user}}/build/{{heljs_name}}
+       version={{heljs_git.version}}
   tags: code_update
 
 # Install packages using NPM...
 - name: Install project NPM packages using NPM
-  become_user: "{{node_container.user}}"
+  become_user: "{{heljs_user}}"
   environment:
     PATH: "{{node_binary_path}}:{{ ansible_env.PATH }}"
-  npm: path=/home/{{node_container.user}}/build/{{node_container.name}}
+  npm: path=/home/{{heljs_user}}/build/{{heljs_name}}
   tags: code_update
-  when: not node_container.use_yarn|default(False)
+  when: not heljs_use_yarn|default(False)
 
 # ...or YARN
 - name: Install project NPM packages using YARN
-  become_user: "{{node_container.user}}"
+  become_user: "{{heljs_user}}"
   environment:
     PATH: "{{node_binary_path}}:{{ ansible_env.PATH }}"
   command: yarn install
   args:
-    chdir: /home/{{node_container.user}}/build/{{node_container.name}}
+    chdir: /home/{{heljs_user}}/build/{{heljs_name}}
   tags: code_update
-  when: node_container.use_yarn|default(False)
+  when: heljs_use_yarn|default(False)
 
 - name: Clean YARN cache (if requested)
-  become_user: "{{node_container.user}}"
+  become_user: "{{heljs_user}}"
   environment:
     PATH: "{{node_binary_path}}:{{ ansible_env.PATH }}"
   command: yarn cache clean
   tags: code_update
-  when: node_container.use_yarn|default(False) and node_container_clean_caches|default(False)
+  when: heljs_use_yarn|default(False) and node_container_clean_caches|default(False)
 
 - set_fact:
     node_path:
@@ -122,97 +122,94 @@
   tags: code_update
 
 - name: Run commands to build the project
-  become_user: "{{node_container.user}}"
+  become_user: "{{heljs_user}}"
   environment:
-  # Construct build environment
-    "{{ node_path | combine(node_container.build_environment|default({'ignore_me': 'ignore_me' })) }}"
+  # Construct build environment. Environment variables are used to control
+  # many things in many a projects' build
+    "{{ node_path | combine(heljs_build_environment|default({'ignore_me': 'ignore_me' })) }}"
   # chdir and command in this order to avoid quoting the whole thing
-  command: chdir=/home/{{node_container.user}}/build/{{node_container.name}} {{ item }}
-  with_items: "{{ node_container.build_commands }}"
-  when: node_container.build_commands is defined
+  command: chdir=/home/{{heljs_user}}/build/{{heljs_name}} {{ item }}
+  with_items: "{{ heljs_build_commands }}"
+  when: heljs_build_commands is defined
   tags: code_update
 
 - name: Copy in project specific configuration files
-  become_user: "{{node_container.user}}"
-  copy: src="{{item.src}}" dest="/home/{{node_container.user}}/build/{{node_container.name }}/{{item.dst}}"
-  with_items: "{{ node_container.project_conffiles | default([])}}"
+  become_user: "{{heljs_user}}"
+  copy: src="{{item.src}}" dest="/home/{{heljs_user}}/build/{{heljs_name}}/{{item.dst}}"
+  with_items: "{{heljs_project_conffiles | default([])}}"
 
 - name: Create destination directories for additional archives
-  become_user: "{{ node_container.user }}"
-  file: path=/home/{{ node_container.user}}/public/{{ item.dst }} state=directory
-  with_items: "{{ node_container.static_archives | default([])}}"
+  become_user: "{{ heljs_user }}"
+  file: path=/home/{{ heljs_user}}/public/{{ item.dst }} state=directory
+  with_items: "{{heljs_static_archives | default([])}}"
 
 - name: Copy in additional static files for publishing
-  become_user: "{{ node_container.user }}"
-  unarchive: src={{ item.src }} dest=/home/{{ node_container.user }}/public/{{ item.dst }}
-  with_items: "{{ node_container.static_archives | default([])}}"
+  become_user: "{{ heljs_user }}"
+  unarchive: src={{ item.src }} dest=/home/{{ heljs_user }}/public/{{ item.dst }}
+  with_items: "{{heljs_static_archives | default([])}}"
 
 # State directory (misnomer) contains both state and actions for managing
 # the service (like backup config, scripts and reload touchpoint)
 - name: Ensure service directories exist
-  file: path=/home/{{node_container.user}}/{{item}} state=directory
+  file: path=/home/{{heljs_user}}/{{item}} state=directory
   tags: code_update
   with_items:
     - service_state
     - service_tasks
 
 - name: Removing possibly existing previous version
-  file: path=/home/{{node_container.user}}/previous state=absent
+  file: path=/home/{{heljs_user}}/previous state=absent
   ignore_errors: yes
   tags: code_update
 
 - name: Recreating previous directory
-  become_user: "{{ node_container.user }}"
-  file: path=/home/{{node_container.user}}/previous state=directory
+  become_user: "{{ heljs_user }}"
+  file: path=/home/{{heljs_user}}/previous state=directory
   tags: code_update
 
 - name: Install PM2 as global package (inside NVM)
-  become_user: "{{node_container.user}}"
+  become_user: "{{heljs_user}}"
   environment:
     PATH: "{{node_binary_path}}:{{ ansible_env.PATH }}"
   npm: name=pm2 global=yes
-  when: node_container.project_server|default(False)
+  when: heljs_project_server|default(False)
 
 - name: Set up project init for PM2
   template: src=pm2-app.json
-            dest=/home/{{node_container.user}}/service_state/app.json
-            owner={{node_container.user}}
+            dest=/home/{{heljs_user}}/service_state/app.json
+            owner={{heljs_user}}
             mode=0400
-  when: node_container.project_server|default(False)
+  when: heljs_project_server|default(False)
 
 - name: Renaming current version (if it exists) to previous
-  command: mv /home/{{node_container.user}}/{{node_container.name}} /home/{{node_container.user}}/previous
+  command: mv /home/{{heljs_user}}/{{heljs_name}} /home/{{heljs_user}}/previous
   args:
-    removes: /home/{{node_container.user}}/{{node_container.name}}
+    removes: /home/{{heljs_user}}/{{heljs_name}}
   tags: code_update
 
 - name: Renaming built version to current
-  command: mv /home/{{node_container.user}}/build/{{node_container.name}} /home/{{node_container.user}}
+  command: mv /home/{{heljs_user}}/build/{{heljs_name}} /home/{{heljs_user}}
   tags: code_update
 
 # each frontend has their own PM2 instance runnning under their own user
 - name: Create PM2 system startup for this project
   template: src=pm2-init.sh
-            dest=/etc/init.d/{{node_container.name}}-pm2
+            dest=/etc/init.d/{{heljs_name}}-pm2
             mode=0755
-  when: node_container.project_server|default(False) and node_container.use_init|default(True)
+  when: heljs_project_server|default(False) and heljs_use_init|default(True)
 
 - name: Enable PM2 startup through system init
-  service: name={{node_container.name}}-pm2 enabled=yes
-  when: node_container.project_server|default(False) and node_container.use_init|default(True)
+  service: name={{heljs_name}}-pm2 enabled=yes
+  when: heljs_project_server|default(False) and heljs_use_init|default(True)
 
 # It seems to state=started has no effect when combined with
 # enabled=yes (previous stanza)
 
 - name: Ensure PM2 service is started
-  service: name={{node_container.name}}-pm2 state=started
-  when: node_container.project_server|default(False) and node_container.use_init|default(True)
+  service: name={{heljs_name}}-pm2 state=started
+  when: heljs_project_server|default(False) and heljs_use_init|default(True)
 
 # PM2 app.json configured above sets up listen for this file
 - name: Touch the service reload flag file
-  file: path=/home/{{node_container.user}}/service_state/touch_to_reload owner={{node_container.user}} state=touch
+  file: path=/home/{{heljs_user}}/service_state/touch_to_reload owner={{heljs_user}} state=touch
   tags: code_update
-
-# Nginx was a historical accident
-- import_tasks: nginx.yml
-  when: not node_container_nginx_disabled|default(False)

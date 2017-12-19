@@ -1,12 +1,9 @@
-Node runtime deployer
-----------
-A role to install Node-based applications.
-
-This role sets up Nginx as a frontend for the application and to optionally
-serve out static files.
+Javascript application deployer
+-------------------------------
+A role to install Javascript applications using package.json to specify
+build and install steps
 
 Configurable:
-- local listening port
 - Node version to use
 - NPM packages to install
 - user name
@@ -14,7 +11,7 @@ Configurable:
 
 Configuration
 -------------
-All configuration is inside node_container
+All configuration is prefixed by hel_js
 
 node_container.user: system user owning the files and running and server processes
 node_container.name: name for the system user ("gecos")
