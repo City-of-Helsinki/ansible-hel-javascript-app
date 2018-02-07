@@ -173,6 +173,7 @@
     PATH: "{{node_binary_path}}:{{ ansible_env.PATH }}"
   npm: name=pm2 global=yes
   when: heljs_project_server|default(False)
+  notify: restart_pm2
 
 - name: Set up project init for PM2
   template: src=pm2-app.json
@@ -180,6 +181,7 @@
             owner={{heljs_user}}
             mode=0400
   when: heljs_project_server|default(False)
+  notify: restart_pm2
 
 - name: Renaming current version (if it exists) to previous
   command: mv /home/{{heljs_user}}/{{heljs_name}} /home/{{heljs_user}}/previous

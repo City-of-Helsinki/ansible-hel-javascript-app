@@ -1,0 +1,3 @@
+---
+- name: restart_pm2
+  service: name={{heljs_name}}-pm2 state=restarted
