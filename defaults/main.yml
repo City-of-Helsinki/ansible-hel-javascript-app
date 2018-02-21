@@ -6,9 +6,23 @@ heljs_git_revision: master
 heljs_nodeversion: lts/*
 # Whether to run the script specified in entry_point
 # using PM2
-heljs_project_server: False
+heljs_project_server: no
+# Whether to run PM2 using init
+heljs_use_init: yes
 #entry_point: server
 # Parameters for PM2 (after startOrRestart app.json)
 heljs_pm2_params: --env production
 heljs_build_environment:
   placeholder_value: placeholder_value
+# Any required system packages
+heljs_syspkg_requirements: []
+# Whether to YARN to install NPM modules
+heljs_use_yarn: no
+# Any NPM modules to install in addition to package.json / yarn.lock
+heljs_npm_modules: []
+# Whether to any npm package specific caches
+heljs_clean_caches: no
+# Any project specific (configuration) files to add
+heljs_project_conffiles: []
+# Any archives to extract into project public directory
+heljs_static_archives: []

@@ -8,7 +8,7 @@
 
 - name: Install system package requirements for the node application
   apt: name="{{item}}" state=present
-  with_items: "{{ heljs_syspkg_requirements|default([]) }}"
+  with_items: "{{ heljs_syspkg_requirements }}"
 
 - name: Creative directory for NVM
   become_user: "{{heljs_user}}"
@@ -68,7 +68,7 @@
 
 - name: Set package manager to use as a fact
   set_fact:
-    npm_manager: "{{ heljs_use_yarn|default(False)|ternary('yarn','npm') }}"
+    npm_manager: "{{ heljs_use_yarn|ternary('yarn','npm') }}"
   tags: code_update
 
 # Install needed Node.js prerequisites, PATH setup needed for NVM
@@ -78,8 +78,8 @@
   environment:
     PATH: "{{node_binary_path}}:{{ ansible_env.PATH }}"
   npm: name={{item}} global=yes
-  with_items: "{{heljs_npm_modules|default([]) }}"
-  when: not heljs_use_yarn|default(False)
+  with_items: "{{heljs_npm_modules }}"
+  when: not heljs_use_yarn
 
 - name: Clone the the project source into build directory
   become_user: "{{heljs_user}}"
@@ -95,7 +95,7 @@
     PATH: "{{node_binary_path}}:{{ ansible_env.PATH }}"
   npm: path=/home/{{heljs_user}}/build/{{heljs_name}}
   tags: code_update
-  when: not heljs_use_yarn|default(False)
+  when: not heljs_use_yarn
 
 # ...or YARN
 - name: Install project NPM packages using YARN
@@ -106,7 +106,7 @@
   args:
     chdir: /home/{{heljs_user}}/build/{{heljs_name}}
   tags: code_update
-  when: heljs_use_yarn|default(False)
+  when: heljs_use_yarn
 
 - name: Clean YARN cache (if requested)
   become_user: "{{heljs_user}}"
@@ -114,7 +114,7 @@
     PATH: "{{node_binary_path}}:{{ ansible_env.PATH }}"
   command: yarn cache clean
   tags: code_update
-  when: heljs_use_yarn|default(False) and node_container_clean_caches|default(False)
+  when: heljs_use_yarn and heljs_clean_caches
 
 - set_fact:
     node_path:
@@ -136,17 +136,17 @@
 - name: Copy in project specific configuration files
   become_user: "{{heljs_user}}"
   copy: src="{{item.src}}" dest="/home/{{heljs_user}}/build/{{heljs_name}}/{{item.dst}}"
-  with_items: "{{heljs_project_conffiles | default([])}}"
+  with_items: "{{heljs_project_conffiles }}"
 
 - name: Create destination directories for additional archives
   become_user: "{{ heljs_user }}"
   file: path=/home/{{ heljs_user}}/public/{{ item.dst }} state=directory
-  with_items: "{{heljs_static_archives | default([])}}"
+  with_items: "{{heljs_static_archives }}"
 
 - name: Copy in additional static files for publishing
   become_user: "{{ heljs_user }}"
   unarchive: src={{ item.src }} dest=/home/{{ heljs_user }}/public/{{ item.dst }}
-  with_items: "{{heljs_static_archives | default([])}}"
+  with_items: "{{heljs_static_archives }}"
 
 # State directory (misnomer) contains both state and actions for managing
 # the service (like backup config, scripts and reload touchpoint)
@@ -172,7 +172,7 @@
   environment:
     PATH: "{{node_binary_path}}:{{ ansible_env.PATH }}"
   npm: name=pm2 global=yes
-  when: heljs_project_server|default(False)
+  when: heljs_project_server
   notify: restart_pm2
 
 - name: Set up project init for PM2
@@ -180,7 +180,7 @@
             dest=/home/{{heljs_user}}/service_state/app.json
             owner={{heljs_user}}
             mode=0400
-  when: heljs_project_server|default(False)
+  when: heljs_project_server
   notify: restart_pm2
 
 - name: Renaming current version (if it exists) to previous
@@ -198,18 +198,18 @@
   template: src=pm2-init.sh
             dest=/etc/init.d/{{heljs_name}}-pm2
             mode=0755
-  when: heljs_project_server|default(False) and heljs_use_init|default(True)
+  when: heljs_project_server and heljs_use_init
 
 - name: Enable PM2 startup through system init
   service: name={{heljs_name}}-pm2 enabled=yes
-  when: heljs_project_server|default(False) and heljs_use_init|default(True)
+  when: heljs_project_server and heljs_use_init
 
 # It seems to state=started has no effect when combined with
 # enabled=yes (previous stanza)
 
 - name: Ensure PM2 service is started
   service: name={{heljs_name}}-pm2 state=started
-  when: heljs_project_server|default(False) and heljs_use_init|default(True)
+  when: heljs_project_server and heljs_use_init
 
 # PM2 app.json configured above sets up listen for this file
 - name: Touch the service reload flag file
