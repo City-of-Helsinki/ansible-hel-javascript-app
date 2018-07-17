@@ -39,6 +39,19 @@
 # Currently this only halfway done, as installation of node blocks
 # any further installs
 
+- name: Retrieve current node version (might not exist)
+  slurp: src=/home/{{ heljs_user }}/nvm/alias/default
+  register: nvm_default_version_base64
+  ignore_errors: True
+
+- name: Set version as fact
+  set_fact:
+    nvm_installed_version: "{{ nvm_default_version_base64['content'] | b64decode | default(0) }}"
+
+- name: Trigger reinstall if different version in requested
+  file: path=/home/{{ heljs_user }}/nvm/alias/default state=absent
+  when: heljs_nodeversion != nvm_installed_version
+
 # Makes use of NVM alias definition to prevent re-installation
 - name: Install node and set version
   become_user: "{{heljs_user}}"
