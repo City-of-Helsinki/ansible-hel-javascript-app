@@ -10,9 +10,6 @@
           {{ heljs_server_environment | to_nice_json }}
       ,
       {% endif %}
-      env_production : {
-        NODE_ENV: "production"
-      },
     },
   ],
 }
