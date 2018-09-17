@@ -44,8 +44,6 @@
   register: nvm_default_version_base64
   ignore_errors: True
 
-- debug: var=nvm_default_version_base64
-
 - name: Set version as fact
   set_fact:
     nvm_installed_version: "{{ nvm_default_version_base64['content'] | b64decode }}"
@@ -80,7 +78,7 @@
   environment:
     PATH: "{{node_binary_path}}:{{ ansible_env.PATH }}"
   npm: name=npm executable={{node_binary_path}}/npm global=yes state=latest production=yes
-  when: heljs_upgrade_npm is defined
+  when: heljs_upgrade_npm
 
 - name: Set package manager to use as a fact
   set_fact:

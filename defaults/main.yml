@@ -4,6 +4,8 @@
 heljs_git_revision: master
 # Use latest LTS of Node by default
 heljs_nodeversion: lts/*
+# Whether to ugprade npm to latest version within the NVM
+hel_upgrade_npm: yes
 # Whether to run the script specified in entry_point
 # using PM2
 heljs_project_server: no
