@@ -95,62 +95,73 @@
   with_items: "{{heljs_npm_modules }}"
   when: not heljs_use_yarn
 
-- name: Clone the the project source into build directory
-  become_user: "{{heljs_user}}"
-  git: repo={{heljs_git_repository}}
-       dest=/home/{{heljs_user}}/build/{{heljs_name}}
-       version={{heljs_git_version}}
-  tags: code_update
+- name: Execute the build steps in build directory
+  block:
+    - name: Clone the the project source into build directory
+      become_user: "{{heljs_user}}"
+      git: repo={{heljs_git_repository}}
+           dest=/home/{{heljs_user}}/build/{{heljs_name}}
+           version={{heljs_git_version}}
+      tags: code_update
 
-# Install packages using NPM...
-- name: Install project NPM packages using NPM
-  become_user: "{{heljs_user}}"
-  environment:
-    PATH: "{{node_binary_path}}:{{ ansible_env.PATH }}"
-  npm: path=/home/{{heljs_user}}/build/{{heljs_name}}
-  tags: code_update
-  when: not heljs_use_yarn
+    # Install packages using NPM...
+    - name: Install project NPM packages using NPM
+      become_user: "{{heljs_user}}"
+      environment:
+        PATH: "{{node_binary_path}}:{{ ansible_env.PATH }}"
+      npm: path=/home/{{heljs_user}}/build/{{heljs_name}}
+      tags: code_update
+      when: not heljs_use_yarn
 
-# ...or YARN
-- name: Install project NPM packages using YARN
-  become_user: "{{heljs_user}}"
-  environment:
-    PATH: "{{node_binary_path}}:{{ ansible_env.PATH }}"
-  command: yarn install
-  args:
-    chdir: /home/{{heljs_user}}/build/{{heljs_name}}
-  tags: code_update
-  when: heljs_use_yarn
+    # ...or YARN
+    - name: Install project NPM packages using YARN
+      become_user: "{{heljs_user}}"
+      environment:
+        PATH: "{{node_binary_path}}:{{ ansible_env.PATH }}"
+      command: yarn install
+      args:
+        chdir: /home/{{heljs_user}}/build/{{heljs_name}}
+      tags: code_update
+      when: heljs_use_yarn
 
-- name: Clean YARN cache (if requested)
-  become_user: "{{heljs_user}}"
-  environment:
-    PATH: "{{node_binary_path}}:{{ ansible_env.PATH }}"
-  command: yarn cache clean
-  tags: code_update
-  when: heljs_use_yarn and heljs_clean_caches
+    - name: Clean YARN cache (if requested)
+      become_user: "{{heljs_user}}"
+      environment:
+        PATH: "{{node_binary_path}}:{{ ansible_env.PATH }}"
+      command: yarn cache clean
+      tags: code_update
+      when: heljs_use_yarn and heljs_clean_caches
 
-- set_fact:
-    node_path:
-      PATH: "{{node_binary_path}}:{{ ansible_env.PATH }}"
-  tags: code_update
+    - set_fact:
+        node_path:
+          PATH: "{{node_binary_path}}:{{ ansible_env.PATH }}"
+      tags: code_update
 
-- name: Run commands to build the project
-  become_user: "{{heljs_user}}"
-  environment:
-  # Construct build environment. Environment variables are used to control
-  # many things in many a projects' build
-    "{{ node_path | combine(heljs_build_environment|default({'ignore_me': 'ignore_me' })) }}"
-  # chdir and command in this order to avoid quoting the whole thing
-  command: chdir=/home/{{heljs_user}}/build/{{heljs_name}} {{ item }}
-  with_items: "{{ heljs_build_commands }}"
-  when: heljs_build_commands is defined
-  tags: code_update
+    - name: Run commands to build the project
+      become_user: "{{heljs_user}}"
+      environment:
+      # Construct build environment. Environment variables are used to control
+      # many things in many a projects' build
+        "{{ node_path | combine(heljs_build_environment|default({'ignore_me': 'ignore_me' })) }}"
+      # chdir and command in this order to avoid quoting the whole thing
+      command: chdir=/home/{{heljs_user}}/build/{{heljs_name}} {{ item }}
+      with_items: "{{ heljs_build_commands }}"
+      when: heljs_build_commands is defined
+      tags: code_update
 
-- name: Copy in project specific configuration files
-  become_user: "{{heljs_user}}"
-  copy: src="{{item.src}}" dest="/home/{{heljs_user}}/build/{{heljs_name}}/{{item.dst}}"
-  with_items: "{{heljs_project_conffiles }}"
+    - name: Copy in project specific configuration files
+      become_user: "{{heljs_user}}"
+      copy: src="{{item.src}}" dest="/home/{{heljs_user}}/build/{{heljs_name}}/{{item.dst}}"
+      with_items: "{{heljs_project_conffiles }}"
+
+  rescue:
+    - name: "FAIL: Ensuring failure directory exists"
+      file:
+        path: /home/{{heljs_user}}/failures
+        state: directory
+    - name: "FAIL: Renaming build directory into failures"
+      command: mv /home/{{heljs_user}}/build/{{heljs_name}} /home/{{heljs_user}}/failures/{{heljs_name}}-{{ansible_date_time.date}}
+    - fail: msg="Aborting play due to build failure"
 
 - name: Create destination directories for additional archives
   become_user: "{{ heljs_user }}"
