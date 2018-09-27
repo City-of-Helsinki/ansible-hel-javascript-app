@@ -15,17 +15,27 @@ All configuration is prefixed by heljs
 
 Setting name | Description
 ------------ | -----------
-heljs.user | system user owning the files and running and server processes
-heljs.name | name for the system user ("gecos")
-heljs.nodeversion | Node that should be installed as understood by NVM
-heljs.use_yarn | Use yarn to install packages.json contents
-heljs.npm_modules | which npmjs modules to install before package.json
-heljs.git.url | git url for the software to install
-heljs.git.version | git version to install
-heljs.build_environment | environment variables to set during build
-heljs.build_commands | commands to run to build the project
-heljs.project_conffiles | project specific conffiles (src and dst)
-heljs.static_archives | extract these archives (src and dst)
-heljs.project_server | whether to use pm2 to run project server
-heljs.webname | virtualhosts to server the stuff out from
-heljs.canonical_name | name for the certificate
+heljs_user | system user owning the files and running the (potential) server processes
+heljs_name | name for the system user ("gecos")
+heljs_nodeversion | Node version that should be installed as understood by NVM
+heljs_use_yarn | Use yarn to install packages.json contents instead of NPM
+heljs_npm_modules | which npmjs modules to install before package.json
+heljs_git.url | git url for the software to install (note the dot)
+heljs_git.version | git version to install (note the dot)
+heljs_build_environment | environment variables to set during build
+heljs_build_commands | commands to run for building the project
+heljs_project_conffiles | project specific conffiles (src and dst)
+heljs_static_archives | extract these archives (src and dst)
+heljs_project_server | whether to use pm2 to run a project server
+heljs_webname | virtualhosts to server the stuff out from
+heljs_canonical_name | name for the certificate
+
+heljs_build_environment is intended to support build steps that derive their configuration from environment variables. Environment variables are nice for this, as they will not remain
+lingering on the server, possibly corrupting future builds.
+
+heljs_build_commands is a list of commands to be run within the node environment (using version specified through heljs_nodeversion).
+
+heljs_project_conffiles is a list (configuration) files with sources on the management system (src) and corresponding filename on the target system (dst)
+
+heljs_static_archives is almost identical to conffiles, expect that the sources are expected to be archives (supported to Ansible archive module). Those archives are then extracted to
+as specified by corresponding dst.
